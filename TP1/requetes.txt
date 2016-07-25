@@ -1,0 +1,267 @@
+SQL> 
+SQL> ALTER SESSION SET NLS_DATE_FORMAT = 'DD/MM/YYYY/'
+  2  /
+
+Session altered.
+
+SQL> 
+SQL> -- 1.   Les numéros des clients (sans répétition) qui ont placé au moins une commande
+SQL> 
+SQL> SELECT	     DISTINCT noClient
+  2  FROM	     Commande
+  3  WHERE	     noCommande >= 1
+  4  /
+
+  NOCLIENT                                                                      
+----------                                                                      
+        30                                                                      
+        40                                                                      
+        20                                                                      
+        10                                                                      
+
+SQL> -- 2.   Le numéro et la description des articles dont le numéro est entre 20 et 80 (inclusivement) et le prix est 10.99 ou 25.99
+SQL> 
+SQL> SELECT	     noArticle, description
+  2  FROM	     Article
+  3  WHERE	     (noArticle >= 20 AND noArticle <= 80) AND (prixUnitaire = 10.99 OR prixUnitaire = 25.99)
+  4  /
+
+ NOARTICLE DESCRIPTION                                                          
+---------- --------------------                                                 
+        40 Epinette bleue                                                       
+        70 Herbe ? puce                                                         
+
+SQL> -- 3.   Le numéro et la description des articles dont la description débute par la lettre C ou contient la chaîne 'bl'
+SQL> 
+SQL> SELECT	     noArticle, description
+  2  FROM	     Article
+  3  WHERE	     description LIKE 'C%' OR description LIKE '%bl%'
+  4  /
+
+ NOARTICLE DESCRIPTION                                                          
+---------- --------------------                                                 
+        10 Cedre en boule                                                       
+        40 Epinette bleue                                                       
+        50 Chene                                                                
+        60 Erable argente                                                       
+        81 Catalpa                                                              
+
+SQL> -- 4.   Le numéro et le nom des clients qui ont placé une commande le 9 juillet 2000
+SQL> 
+SQL> SELECT	     Client.noClient, Client.nomClient
+  2  FROM	     Client, Commande
+  3  WHERE	     Client.noCLient = Commande.noClient AND dateCommande = '09/07/2000'
+  4  /
+
+  NOCLIENT NOMCLIENT                                                            
+---------- --------------------                                                 
+        30 Lin Bo                                                               
+        20 Dollard Tremblay                                                     
+
+SQL> -- 5.   Les noms des clients, numéros de commande, date de commande et noArticle pour les articles livrés le 4 juin 2000 dont la quantité livrée est supérieure à 1
+SQL> 
+SQL> SELECT	     Client.nomClient, DetailLivraison.noCommande, Commande.dateCommande, DetailLivraison.noArticle
+  2  FROM	     Client, Commande, DetailLivraison, Livraison
+  3  WHERE	     Client.noClient = Commande.noClient
+  4  			     AND Commande.noCommande = DetailLivraison.noCommande
+  5  			     AND DetailLivraison.noLivraison = Livraison.noLivraison
+  6  			     AND dateLivraison = '04/06/2000'
+  7  			     AND quantiteLivree > 1
+  8  /
+
+NOMCLIENT            NOCOMMANDE DATECOMMAND  NOARTICLE                          
+-------------------- ---------- ----------- ----------                          
+Luc Sansom                    1 01/06/2000/         10                          
+Dollard Tremblay              2 02/06/2000/         40                          
+
+SQL> -- 6.   La liste des dates du mois de juin 2000 pour lesquelles il y a au moins une livraison ou une commande. Les résultats sont produits en une colonne nommée DateÉvénement.
+SQL> 
+SQL> (SELECT	     dateLivraison as DateEvenement
+  2  FROM	     Livraison
+  3  WHERE	     dateLivraison BETWEEN '01/06/2000' AND '30/06/2000')
+  4  UNION
+  5  (SELECT	     dateCommande as DateEvenement
+  6  FROM	     Commande
+  7  WHERE	     dateCommande BETWEEN '01/06/2000' AND '30/06/2000')
+  8  /
+
+DATEEVENEME                                                                     
+-----------                                                                     
+01/06/2000/                                                                     
+02/06/2000/                                                                     
+03/06/2000/                                                                     
+04/06/2000/                                                                     
+05/06/2000/                                                                     
+
+SQL> -- 7.   Les noArticle et la quantité totale livrée de l’article incluant les articles dont la quantité totale livrée est égale à 0.
+SQL> 
+SQL> (SELECT	     noArticle, SUM(quantiteLivree) AS Quantite_Livree
+  2  FROM	     DetailLivraison
+  3  GROUP BY	     noArticle)
+  4  UNION
+  5  (SELECT	     noArticle, 0 AS Quantite_Livree
+  6  FROM	     Article)
+  7  MINUS
+  8  (SELECT	     noArticle, 0 AS Quantite_Livree
+  9  FROM	     DetailLivraison)
+ 10  /
+
+ NOARTICLE QUANTITE_LIVREE                                                      
+---------- ---------------                                                      
+        10              10                                                      
+        20               1                                                      
+        40               3                                                      
+        50               0                                                      
+        60               0                                                      
+        70               7                                                      
+        80               0                                                      
+        81               0                                                      
+        90               1                                                      
+        95               1                                                      
+
+10 rows selected.
+
+SQL> -- 8.   Les noArticle et la quantité totale livrée de l’article pour les articles dont le prix est inférieur à $20 et dont la quantité totale livrée est inférieure à 5
+SQL> 
+SQL> (SELECT	     D.noArticle, SUM(D.quantiteLivree) AS Quantite_Livree
+  2  FROM	     Article A, DetailLivraison D
+  3  WHERE	     A.noArticle = D.noArticle
+  4  			     AND A.prixUnitaire < 20
+  5  GROUP BY	     D.noArticle
+  6  HAVING	     SUM(D.quantiteLivree) < 5)
+  7  UNION
+  8  (SELECT	     A.noArticle, 0 AS Quantite_Livree
+  9  FROM	     Article A, DetailLivraison D
+ 10  WHERE	     A.noArticle = D.noArticle (+)
+ 11  			     AND D.quantiteLivree is null
+ 12  			     AND A.prixUnitaire < 20
+ 13  GROUP BY	     A.noArticle)
+ 14  /
+
+ NOARTICLE QUANTITE_LIVREE                                                      
+---------- ---------------                                                      
+        20               1                                                      
+        60               0                                                      
+        95               1                                                      
+
+SQL> -- 9.   Le noLivraison, noCommande, noArticle, la date de la commande, la quantité commandée, la date de la livraison, la quantitée livrée et le nombre de jours écoulés entre la commande et la livraison dans le cas où ce nombre a dépassé 2 jours et le nombre de jours écoulés depuis la commande jusqu’à aujourh’hui est supérieur à 100
+SQL> 
+SQL> SELECT	     DetailLivraison.noLivraison, DetailLivraison.noCommande, DetailLivraison.noArticle, Commande.dateCommande, LigneCommande.quantite, Livraison.dateLivraison, DetailLivraison.quantiteLivree, (Livraison.dateLivraison - Commande.dateCommande) AS Nombre_Jours_Ecoules
+  2  FROM	     Commande, DetailLivraison, LigneCommande, Livraison
+  3  WHERE	     DetailLivraison.noLivraison = Livraison.noLivraison
+  4  			     AND DetailLivraison.noCommande = LigneCommande.noCommande
+  5  			     AND LigneCommande.noCommande = Commande.noCommande
+  6  			     AND     DetailLivraison.noArticle = LigneCommande.noArticle
+  7  			     AND     (Livraison.dateLivraison - Commande.dateCommande) > 2
+  8  			     AND     (SYSDATE - Commande.dateCommande) > 100
+  9  ORDER BY	     DetailLivraison.noLivraison
+ 10  /
+
+NOLIVRAISON NOCOMMANDE  NOARTICLE DATECOMMAND   QUANTITE DATELIVRAIS            
+----------- ---------- ---------- ----------- ---------- -----------            
+QUANTITELIVREE NOMBRE_JOURS_ECOULES                                             
+-------------- --------------------                                             
+        101          1         10 01/06/2000/         10 04/06/2000/            
+             3                    3                                             
+                                                                                
+        103          1         90 01/06/2000/          1 05/06/2000/            
+             1                    4                                             
+                                                                                
+
+SQL> -- 10.  La liste des Articles triée en ordre décroissant de prix et pour chacun des prix en ordre croissant de numéro
+SQL> 
+SQL> SELECT	     noArticle, description, prixUnitaire, quantiteEnStock
+  2  FROM	     Article
+  3  ORDER BY	     prixUnitaire DESC, noArticle ASC
+  4  /
+
+ NOARTICLE DESCRIPTION          PRIXUNITAIRE QUANTITEENSTOCK                    
+---------- -------------------- ------------ ---------------                    
+        80 Poirier                     26,99              10                    
+        40 Epinette bleue              25,99              10                    
+        81 Catalpa                     25,99              10                    
+        90 Pommier                     25,99              10                    
+        50 Chene                       22,99              10                    
+        60 Erable argente              15,99              10                    
+        95 Genevrier                   15,99              10                    
+        20 Sapin                       12,99              10                    
+        10 Cedre en boule              10,99              10                    
+        70 Herbe ? puce                10,99              10                    
+
+10 rows selected.
+
+SQL> -- 11.  Le nombre d’articles dont le prix est supérieur à 25 et le nombre d'articles dont le prix est inférieur à 15 (en deux colonnes)
+SQL> 
+SQL> SELECT	     COUNT(DISTINCT Asup.noArticle) AS NombrePlusCherQue25, COUNT(DISTINCT Article.noArticle) AS NombreMoinsCherQue15
+  2  FROM	     Article Asup, Article
+  3  WHERE	     Asup.prixUnitaire > 25 AND Article.prixUnitaire < 15
+  4  /
+
+NOMBREPLUSCHERQUE25 NOMBREMOINSCHERQUE15                                        
+------------------- --------------------                                        
+                  4                    3                                        
+
+SQL> -- 12.  Les noCommande des commandes qui n'ont aucune livraison correspondante
+SQL> 
+SQL> (SELECT	     DISTINCT noCommande
+  2  FROM	     LigneCommande)
+  3  MINUS
+  4  (SELECT	     DISTINCT LigneCommande.noCommande
+  5  FROM	     LigneCommande, DetailLivraison
+  6  WHERE	     LigneCommande.noCommande = DetailLivraison.noCommande)
+  7  /
+
+NOCOMMANDE                                                                      
+----------                                                                      
+         6                                                                      
+         7                                                                      
+         8                                                                      
+
+SQL> -- 13.  En deux colonnes, les paires de numéros de commandes (différentes) qui sont faites à la même date ainsi que la date de commande. Il faut éviter de répéter deux fois la même paire.
+SQL> 
+SQL> SELECT	     Commande.noCommande, C.noCommande, Commande.dateCommande
+  2  FROM	     Commande, Commande C
+  3  WHERE	     Commande.dateCommande = C.dateCommande
+  4  			     AND Commande.noCommande != C.noCommande
+  5  			     AND Commande.noCommande < C.noCommande
+  6  /
+
+NOCOMMANDE NOCOMMANDE DATECOMMAND                                               
+---------- ---------- -----------                                               
+         2          3 02/06/2000/                                               
+         5          6 09/07/2000/                                               
+         7          8 15/07/2000/                                               
+
+SQL> -- 14.  Le montant total commandé pour chaque paire (dateCommande, noArticle) dans les cas où le montant total dépasse 50$.
+SQL> 
+SQL> SELECT	     Commande.dateCommande, LigneCommande.noArticle, SUM(Article.prixUnitaire * LigneCommande.quantite) AS Montant_Total_Commande
+  2  FROM	     Article, Commande, LigneCommande
+  3  WHERE	     LigneCommande.noArticle = Article.noArticle
+  4  			     AND Commande.noCommande = LigneCommande.noCommande
+  5  GROUP BY	     Commande.dateCommande, LigneCommande.noArticle
+  6  HAVING	     SUM(quantite * prixUnitaire) > 50
+  7  /
+
+DATECOMMAND  NOARTICLE MONTANT_TOTAL_COMMANDE                                   
+----------- ---------- ----------------------                                   
+01/06/2000/         70                  54,95                                   
+09/07/2000/         20                  64,95                                   
+01/06/2000/         10                  109,9                                   
+09/07/2000/         10                  109,9                                   
+02/06/2000/         40                  51,98                                   
+
+SQL> -- 15.  Les noArticle des articles commandés dans toutes et chacune des commandes du client 20
+SQL> 
+SQL> SELECT	     DISTINCT LigneCommande.noArticle
+  2  FROM	     Commande, LigneCommande
+  3  WHERE	     Commande.noClient = 20
+  4  			     AND Commande.noCommande = LigneCommande.noCommande
+  5  			     AND LigneCommande.noArticle = 40
+  6  /
+
+ NOARTICLE                                                                      
+----------                                                                      
+        40                                                                      
+
+SQL> 
+SQL> SPOOL OFF
